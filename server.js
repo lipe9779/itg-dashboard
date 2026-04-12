@@ -10,11 +10,8 @@ const ONEDRIVE_SHARE_URL = 'https://1drv.ms/x/c/f6ee546509309629/IQBajru88WpbRIL
 
 // Convert OneDrive share link to direct download
 function getDirectUrl(shareUrl) {
-  // Extract ID from share URL
-  const match = shareUrl.match(/\/c\/([^/]+)\/([^?]+)/);
-  if (!match) throw new Error('Invalid OneDrive URL');
-  const id = match[2];
-  return `https://1drv.ms/x/c/${match[1]}/${id}?download=1`;
+  // Use direct download approach for OneDrive
+  return shareUrl.split('?')[0] + '?download=1';
 }
 
 app.get('/api/orders', async (req, res) => {
