@@ -1,7 +1,7 @@
 {
   "name": "itg-dashboard-backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "index.js",
   "dependencies": {
     "express": "^4.18.0",
     "cors": "^2.8.5",
@@ -9,6 +9,6 @@
     "xlsx": "^0.18.5"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
   }
 }
