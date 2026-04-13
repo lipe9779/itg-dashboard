@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ITG Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #f9fafb; padding: 20px; }
+    .container { max-width: 100%; margin: 0 auto; }
+    .header { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 8px; flex-wrap: wrap; }
+    h1 { font-size: 24px; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .last-update { font-size: 11px; color: #6b7280; }
+    .refresh-btn { background: rgba(232,170,20,0.15); border: 1px solid rgba(232,170,20,0.4); color: #E8AA14; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .refresh-btn:hover { background: rgba(232,170,20,0.3); }
+    .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 20px; }
+    .loading-spinner { width: 48px; height: 48px; border: 4px solid rgba(232,170,20,0.2); border-top-color: #E8AA14; border-radius: 50%; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: #9ca3af; font-size: 14px; }
+    .error-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; text-align: center; }
+    .error-icon { font-size: 48px; }
+    .error-title { font-size: 18px; font-weight: 700; color: #ef4444; }
+    .error-msg { color: #9ca3af; font-size: 13px; max-width: 420px; line-height: 1.6; }
+    .retry-btn { background: #E8AA14; color: #0d1117; border: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
+
+    .search-section { margin-bottom: 15px; }
+    .search-title { font-size: 11px; color: #9ca3af; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+    .search-inputs { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    input[type="text"] { padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f9fafb; border-radius: 6px; font-size: 13px; flex: 1; min-width: 150px; }
+
+    .filters-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .filters-section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); padding: 15px; border-radius: 8px; }
+    .filter-group { margin-bottom: 12px; }
+    .filter-group:last-child { margin-bottom: 0; }
+    .filter-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; display: block; }
+    .filter-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-btn { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #9ca3af; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.2s; }
+    .filter-btn:hover { background: rgba(232,170,20,0.2); border-color: rgba(232,170,20,0.5); color: #E8AA14; }
+    .filter-btn.active { background: #E8AA14; color: #0d1117; border-color: #E8AA14; font-weight: 600; }
+    .filter-btn.clear { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #ef4444; font-size: 10px; width: 100%; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
+    .kpi-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); padding: 15px; border-radius: 6px; border-left: 3px solid #E8AA14; }
+    .kpi-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
+    .kpi-value { font-size: 20px; font-weight: 700; color: #E8AA14; }
+
+    .table-wrapper { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; margin-bottom: 30px; display: flex; flex-direction: column; width: 100%; }
+    .table-info { padding: 10px 15px; font-size: 12px; color: #9ca3af; background: rgba(0,0,0,0.2); flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .table-container { height: auto; max-height: calc(20 * 40px + 50px); overflow-y: scroll; overflow-x: auto; width: 100%; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    tbody tr { height: 40px; }
+    thead { position: sticky; top: 0; z-index: 10; }
+    th { padding: 10px; text-align: left; background: rgba(255,255,255,0.05); font-size: 10px; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid rgba(255,255,255,0.1); white-space: nowrap; cursor: pointer; user-select: none; }
+    th:hover { background: rgba(232,170,20,0.1); }
+    th::after { content: ''; display: inline-block; margin-left: 5px; }
+    th.sort-asc::after { content: '▲'; font-size: 8px; color: #E8AA14; }
+    th.sort-desc::after { content: '▼'; font-size: 8px; color: #E8AA14; }
+    td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: rgba(232,170,20,0.05); }
+    .highlight { color: #E8AA14; font-weight: 600; }
+    .status-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
+    .status-ok { background: rgba(16,185,129,0.2); color: #10B981; }
+    .status-pending { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .no-data { text-align: center; padding: 30px; color: #6b7280; }
+
+    .charts-section { display: flex; flex-direction: column; gap: 30px; margin-bottom: 30px; }
+    .chart-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); padding: 20px; border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; width: 100%; }
+    .chart-title { font-size: 12px; color: #9ca3af; text-transform: uppercase; margin-bottom: 15px; font-weight: 600; grid-column: 1 / -1; }
+    .chart-left { display: flex; align-items: center; justify-content: center; }
+    .chart-canvas { position: relative; height: 300px; width: 100%; }
+    canvas { cursor: pointer; }
+    .chart-right { overflow-y: auto; max-height: 300px; padding-right: 10px; }
+    .top10-title { font-size: 11px; color: #9ca3af; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
+    .top10-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 11px; }
+    .top10-rank { color: #E8AA14; font-weight: 600; min-width: 25px; }
+    .top10-label { flex: 1; margin: 0 10px; color: #d1d5db; }
+    .top10-value { color: #9ca3af; text-align: right; }
+
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); z-index: 1000; padding: 20px; overflow-y: auto; }
+    .modal.active { display: flex; align-items: flex-start; justify-content: center; }
+    .modal-content { background: #111827; padding: 20px; border-radius: 8px; max-width: 600px; width: 100%; border: 1px solid rgba(255,255,255,0.1); margin-top: 60px; max-height: 80vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; margin-bottom: 15px; }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .close-btn { background: rgba(255,255,255,0.08); border: none; color: #9ca3af; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+    .detail-row { display: grid; grid-template-columns: 40% 60%; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; }
+    .detail-label { color: #9ca3af; text-transform: uppercase; font-size: 10px; font-weight: 600; }
+    .detail-value { color: #d1d5db; word-break: break-word; }
+    .detail-value.highlight { color: #E8AA14; font-weight: 600; }
+
+    .report-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    .report-table th { padding: 8px; text-align: left; background: rgba(232,170,20,0.1); font-size: 10px; color: #E8AA14; border: 1px solid rgba(232,170,20,0.3); }
+    .report-table td { padding: 6px 8px; border: 1px solid rgba(255,255,255,0.1); font-size: 11px; }
+    .report-table tr:nth-child(even) { background: rgba(0,0,0,0.2); }
+
+    @media (max-width: 1024px) { .filters-wrapper { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) { .container { padding: 10px; } .header { flex-direction: column; align-items: flex-start; } .filters-wrapper { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: 1fr; } .chart-card { grid-template-columns: 1fr; } .chart-canvas { height: 200px; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>ITG Dashboard</h1>
+    <div class="header-right">
+      <span class="last-update" id="lastUpdate"></span>
+      <button class="refresh-btn" id="refreshBtn" onclick="loadData()" style="display:none;">🔄 Aggiorna</button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Caricamento dati...</div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-screen" id="errorScreen">
+    <div class="error-icon">⚠️</div>
+    <div class="error-title">Errore caricamento dati</div>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="retry-btn" onclick="loadData()">Riprova</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboardContent" style="display:none;">
+    <div class="search-section">
+      <div class="search-title">🔍 Quick Search</div>
+      <div class="search-inputs">
+        <input type="text" id="searchRIF" placeholder="RIF / FTP+YEAR / Supplier S/C..." oninput="render()">
+        <input type="text" id="searchSupplier" placeholder="Supplier name..." oninput="render()">
+        <input type="text" id="searchInvoice" placeholder="Invoice No..." oninput="render()">
+        <input type="text" id="searchConsignee" placeholder="Consignee / Customer..." oninput="render()">
+      </div>
+    </div>
+
+    <div class="filters-wrapper">
+      <div class="filters-section">
+        <div class="filter-group"><label class="filter-label">Year</label><div class="filter-buttons" id="yearButtons"></div></div>
+        <div class="filter-group"><label class="filter-label">Shipping Status</label><div class="filter-buttons" id="shipButtons"></div></div>
+        <div class="filter-group"><label class="filter-label">Collection Status</label><div class="filter-buttons" id="collButtons"></div></div>
+        <div class="filter-group"><label class="filter-label">Payment Status</label><div class="filter-buttons" id="payButtons"></div></div>
+        <div class="filter-group"><label class="filter-label">Followed By</label><div class="filter-buttons" id="followedButtons"></div></div>
+        <div class="filter-group"><button class="filter-btn clear" onclick="clearAllFilters()">🔄 Clear All</button></div>
+      </div>
+      <div class="filters-section">
+        <div class="filter-group"><label class="filter-label">Nickname</label><div class="filter-buttons" id="nicknameButtons"></div></div>
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="kpis"></div>
+
+    <div class="table-wrapper">
+      <div class="table-info" id="tableInfo"></div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortTable('rif', event)">RIF</th>
+              <th onclick="sortTable('ftp_year', event)">FTP</th>
+              <th onclick="sortTable('acid', event)">ACID NO.</th>
+              <th onclick="sortTable('year', event)">Year</th>
+              <th onclick="sortTable('supplier_sc', event)">Supplier S/C</th>
+              <th onclick="sortTable('supplier', event)">Supplier</th>
+              <th onclick="sortTable('invoice', event)">Invoice</th>
+              <th onclick="sortTable('consignee', event)">Consignee</th>
+              <th onclick="sortTable('goods_desc', event)">Goods</th>
+              <th onclick="sortTable('ship_status', event)">Ship</th>
+              <th onclick="sortTable('coll_status', event)">Collect</th>
+              <th onclick="sortTable('paying_status', event)">Pay</th>
+              <th onclick="sortTable('balance', event)">Balance</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="charts-section">
+      <div class="chart-card">
+        <div class="chart-title">Total Purchase</div>
+        <div class="chart-left"><div class="chart-canvas"><canvas id="supplierChart"></canvas></div></div>
+        <div class="chart-right"><div class="top10-title">TOP 10</div><div id="supplierTop10"></div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Total Sales</div>
+        <div class="chart-left"><div class="chart-canvas"><canvas id="customerChart"></canvas></div></div>
+        <div class="chart-right"><div class="top10-title">TOP 10</div><div id="customerTop10"></div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Total Items</div>
+        <div class="chart-left"><div class="chart-canvas"><canvas id="categoryChart"></canvas></div></div>
+        <div class="chart-right"><div class="top10-title">TOP 10</div><div id="categoryTop10"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <div class="modal-header"><div class="modal-title" id="modalTitle"></div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+  // ─── CONFIGURAZIONE ───────────────────────────────────────────────────────
+  const SHEET_ID = '1WrP7yZf61BYmTohvsx-AW7c9NMDEPpSTnJ1QtuK6DMQ';
+  const SHEET_NAME = 'EGYPT Customers';
+  const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+  // Mapping colonne (indice 0-based, riga 1 = header, dati da riga 2)
+  const colIdx = {
+    rif: 0, year: 1, acid: 2, supplier: 4, nickname: 5, followed_by: 6,
+    supplier_sc: 7, goods_desc: 9, item_desc: 10, category: 11,
+    containers: 13, quantity: 14, dp_price: 15, dp_value: 20,
+    deposit_italy: 21, paid_italy: 23, balance_paid: 26, paying_status: 27,
+    invoice: 19, ship_status: 41, ftp_year: 45, consignee: 51,
+    sales_price: 56, sc_value: 57, magic_invoice: 58, deposit_received: 60,
+    balance: 62, coll_status: 63, bank_used: 66, upload_doc: 69
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
+  let ORDERS = [];
+  let chartInstances = {};
+  let activeFilters = { year: [], ship: [], coll: [], pay: [], nickname: [], followed: [] };
+  let sortColumn = 'rif';
+  let sortAsc = false;
+  const colors = ['#E8AA14','#10B981','#ef4444','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#6366f1','#f97316'];
+
+  // ─── CSV PARSER ───────────────────────────────────────────────────────────
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i], next = text[i+1];
+      if (inQuotes) {
+        if (ch === '"' && next === '"') { field += '"'; i++; }
+        else if (ch === '"') { inQuotes = false; }
+        else { field += ch; }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else if (ch === '\r') { /* skip */ }
+        else { field += ch; }
+      }
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  // ─── LOAD DATA ────────────────────────────────────────────────────────────
+  async function loadData() {
+    showLoading('Caricamento dati da Google Sheets...');
+    const btn = document.getElementById('refreshBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Caricamento...'; }
+
+    try {
+      const res = await fetch(CSV_URL + '&t=' + Date.now()); // cache busting
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const rows = parseCSV(text);
+
+      // Riga 0 = group headers, riga 1 = column names, dati da riga 2
+      // Google Sheets export CSV include solo 1 riga di header → riga 0 = headers, dati da riga 1
+      // Verifica: se riga 0 col 0 è "RIF" o numerico
+      let dataStart = 1;
+      const firstCell = (rows[0] && rows[0][0]) ? rows[0][0].trim() : '';
+      // Se la prima cella non è numerica, è un header → dati da riga 1
+      // Se il file Excel ha 2 righe header (group + column names), CSV avrà 2 righe header
+      if (rows[1] && isNaN(parseInt(rows[1][colIdx.rif])) && rows[1][colIdx.rif] !== '') {
+        dataStart = 2;
+      }
+
+      ORDERS = [];
+      rows.slice(dataStart).forEach(row => {
+        const order = {};
+        Object.entries(colIdx).forEach(([key, idx]) => {
+          const val = row[idx];
+          if (val != null && val !== '') order[key] = String(val).trim();
+        });
+        if (order.rif && !isNaN(parseInt(order.rif))) ORDERS.push(order);
+      });
+
+      if (ORDERS.length === 0) throw new Error('Nessun ordine trovato. Verifica che il foglio "EGYPT Customers" sia presente e il file sia aggiornato.');
+
+      const now = new Date();
+      document.getElementById('lastUpdate').textContent =
+        `Aggiornato: ${now.toLocaleDateString('it-IT')} ${now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'})} — ${ORDERS.length} ordini`;
+
+      showDashboard();
+      setupFilters();
+      renderCharts();
+      render();
+
+    } catch(err) {
+      showError(err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Aggiorna'; }
+    }
+  }
+
+  function showLoading(msg) {
+    document.getElementById('loadingScreen').style.display = 'flex';
+    document.getElementById('errorScreen').style.display = 'none';
+    document.getElementById('dashboardContent').style.display = 'none';
+    document.getElementById('loadingText').textContent = msg || 'Caricamento...';
+  }
+
+  function showError(msg) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('errorScreen').style.display = 'flex';
+    document.getElementById('dashboardContent').style.display = 'none';
+    document.getElementById('errorMsg').textContent = msg;
+  }
+
+  function showDashboard() {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('errorScreen').style.display = 'none';
+    document.getElementById('dashboardContent').style.display = 'block';
+    document.getElementById('refreshBtn').style.display = 'inline-block';
+  }
+
+  // ─── FILTRI ───────────────────────────────────────────────────────────────
+  function setupFilters() {
+    const years    = [...new Set(ORDERS.map(o => o.year).filter(Boolean))].sort((a,b) => parseInt(b)-parseInt(a));
+    const ships    = [...new Set(ORDERS.map(o => o.ship_status).filter(Boolean))];
+    const colls    = [...new Set(ORDERS.map(o => o.coll_status).filter(Boolean))];
+    const pays     = [...new Set(ORDERS.map(o => o.paying_status).filter(Boolean))];
+    const nicks    = [...new Set(ORDERS.map(o => o.nickname).filter(Boolean))].sort();
+    const followed = [...new Set(ORDERS.map(o => o.followed_by).filter(Boolean))].sort();
+
+    document.getElementById('yearButtons').innerHTML     = years.map(y => btn(y, 'year')).join('');
+    document.getElementById('shipButtons').innerHTML     = ships.map(s => btn(s, 'ship')).join('');
+    document.getElementById('collButtons').innerHTML     = colls.map(c => btn(c, 'coll')).join('');
+    document.getElementById('payButtons').innerHTML      = pays.map(p => btn(p, 'pay')).join('');
+    document.getElementById('nicknameButtons').innerHTML = nicks.map(n => btn(n, 'nickname')).join('');
+    document.getElementById('followedButtons').innerHTML = followed.map(f => btn(f, 'followed')).join('');
+  }
+
+  function btn(val, type) {
+    return `<button class="filter-btn" onclick="toggleFilter('${type}','${val.replace(/'/g,"\\'")}')">${val}</button>`;
+  }
+
+  function toggleFilter(type, value) {
+    if (activeFilters[type].includes(value)) activeFilters[type] = activeFilters[type].filter(v => v !== value);
+    else activeFilters[type].push(value);
+    updateFilterButtons();
+    renderCharts();
+    render();
+  }
+
+  function updateFilterButtons() {
+    document.querySelectorAll('.filter-btn:not(.clear)').forEach(b => {
+      b.classList.toggle('active', Object.values(activeFilters).some(arr => arr.includes(b.textContent)));
+    });
+  }
+
+  function clearAllFilters() {
+    activeFilters = { year: [], ship: [], coll: [], pay: [], nickname: [], followed: [] };
+    updateFilterButtons();
+    renderCharts();
+    render();
+  }
+
+  function getFiltered() {
+    const q1 = document.getElementById('searchRIF').value.toLowerCase();
+    const q2 = document.getElementById('searchSupplier').value.toLowerCase();
+    const q3 = document.getElementById('searchInvoice').value.toLowerCase();
+    const q4 = document.getElementById('searchConsignee').value.toLowerCase();
+    return ORDERS.filter(o => {
+      if (activeFilters.year.length     && !activeFilters.year.includes(o.year))           return false;
+      if (activeFilters.ship.length     && !activeFilters.ship.includes(o.ship_status))    return false;
+      if (activeFilters.coll.length     && !activeFilters.coll.includes(o.coll_status))    return false;
+      if (activeFilters.pay.length      && !activeFilters.pay.includes(o.paying_status))   return false;
+      if (activeFilters.nickname.length && !activeFilters.nickname.includes(o.nickname))   return false;
+      if (activeFilters.followed.length && !activeFilters.followed.includes(o.followed_by))return false;
+      if (q1 && !`${o.rif}${o.ftp_year}${o.supplier_sc}`.toLowerCase().includes(q1))      return false;
+      if (q2 && !(o.supplier||'').toLowerCase().includes(q2))                              return false;
+      if (q3 && !(o.invoice||'').toLowerCase().includes(q3))                               return false;
+      if (q4 && !(o.consignee||'').toLowerCase().includes(q4))                             return false;
+      return true;
+    });
+  }
+
+  // ─── SORT ─────────────────────────────────────────────────────────────────
+  function sortTable(col, e) {
+    if (sortColumn === col) sortAsc = !sortAsc;
+    else { sortColumn = col; sortAsc = true; }
+    document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+    if (e && e.target) e.target.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+    render();
+  }
+
+  // ─── CHARTS ───────────────────────────────────────────────────────────────
+  function renderCharts() {
+    const filt = getFiltered();
+    const sup = {}, cust = {}, cat = {};
+    filt.forEach(o => {
+      sup[o.supplier||'Unknown']  = (sup[o.supplier||'Unknown']  || 0) + (parseFloat(o.dp_value) || 0);
+      cust[o.consignee||'Unknown']= (cust[o.consignee||'Unknown']|| 0) + (parseFloat(o.sc_value) || 0);
+      cat[o.category||'Unknown']  = (cat[o.category||'Unknown']  || 0) + (parseFloat(o.quantity) || 0);
+    });
+    renderChart('supplierChart', sup,  'supplier',  'supplierTop10');
+    renderChart('customerChart', cust, 'consignee', 'customerTop10');
+    renderChart('categoryChart', cat,  'category',  'categoryTop10');
+  }
+
+  function renderChart(canvasId, data, type, top10Id) {
+    const labels = Object.keys(data), values = Object.values(data);
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+    chartInstances[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length) }] },
+      options: { responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false } },
+        onClick: (e, els) => { if (els.length) showDetailReport(type, labels[els[0].index]); }
+      }
+    });
+    const sorted = Object.entries(data).sort((a,b) => b[1]-a[1]).slice(0,10);
+    document.getElementById(top10Id).innerHTML = sorted.map((item, idx) =>
+      `<div class="top10-item"><span class="top10-rank">${idx+1}</span><span class="top10-label">${item[0]}</span><span class="top10-value">${type==='category' ? fmtQty(item[1]) : fmt(item[1])}</span></div>`
+    ).join('');
+  }
+
+  function showDetailReport(type, value) {
+    const filt = getFiltered();
+    const data = type==='supplier' ? filt.filter(o=>o.supplier===value)
+               : type==='consignee'? filt.filter(o=>o.consignee===value)
+               : filt.filter(o=>o.category===value);
+    document.getElementById('modalTitle').textContent =
+      `${type==='supplier'?'Supplier':type==='consignee'?'Customer':'Category'}: ${value}`;
+    let table = '<table class="report-table"><thead><tr><th>RIF</th><th>FTP</th><th>Invoice</th><th>Year</th><th>Amount</th></tr></thead><tbody>';
+    data.forEach(o => {
+      const amt = type==='category' ? fmtQty(o.quantity) : type==='supplier' ? fmt(o.dp_value) : fmt(o.sc_value);
+      table += `<tr><td>${o.rif}</td><td>${o.ftp_year||'—'}</td><td>${o.invoice||'—'}</td><td>${o.year}</td><td>${amt}</td></tr>`;
+    });
+    document.getElementById('modalBody').innerHTML = table + '</tbody></table>';
+    document.getElementById('modal').classList.add('active');
+  }
+
+  // ─── FORMAT ───────────────────────────────────────────────────────────────
+  function fmt(v, d=2) { const n=parseFloat(v); return isNaN(n)?'—':`$${n.toLocaleString('it-IT',{minimumFractionDigits:d,maximumFractionDigits:d})}`; }
+  function fmtQty(v)   { const n=parseFloat(v); return isNaN(n)?'—':n.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtInt(v)   { const n=parseInt(v);   return isNaN(n)?'—':n.toString(); }
+
+  // ─── RENDER TABLE ─────────────────────────────────────────────────────────
+  function render() {
+    let filt = getFiltered();
+    filt.sort((a,b) => {
+      if (sortColumn === 'year' || sortColumn === 'rif') {
+        const aY=parseInt(a.year)||0, bY=parseInt(b.year)||0;
+        if (aY!==bY) return bY-aY;
+        return (parseInt(b.rif)||0)-(parseInt(a.rif)||0);
+      }
+      const av=a[sortColumn]||'', bv=b[sortColumn]||'';
+      return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+    let totalPurchase=0, totalSales=0, totalQty=0, totalContainers=0;
+    filt.forEach(o => {
+      totalPurchase  += parseFloat(o.dp_value)   || 0;
+      totalSales     += parseFloat(o.sc_value)   || 0;
+      totalQty       += parseFloat(o.quantity)   || 0;
+      totalContainers+= parseFloat(o.containers) || 0;
+    });
+
+    document.getElementById('kpis').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">Total Purchase</div><div class="kpi-value">${fmt(totalPurchase)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Sales</div><div class="kpi-value">${fmt(totalSales)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Quantity</div><div class="kpi-value">${fmtQty(totalQty)} KG</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Containers</div><div class="kpi-value">${fmtInt(totalContainers)}</div></div>
+    `;
+
+    document.getElementById('tableInfo').textContent = `${filt.length} of ${ORDERS.length}`;
+    if (filt.length === 0) {
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="13" class="no-data">Nessun ordine trovato</td></tr>';
+      return;
+    }
+
+    document.getElementById('tableBody').innerHTML = filt.map(o => `
+      <tr onclick="detail(${ORDERS.indexOf(o)})">
+        <td class="highlight">${o.rif}</td>
+        <td class="highlight">${o.ftp_year||'—'}</td>
+        <td>${o.acid||'—'}</td>
+        <td>${o.year}</td>
+        <td>${o.supplier_sc||'—'}</td>
+        <td>${o.supplier||'—'}</td>
+        <td>${o.invoice||'—'}</td>
+        <td>${o.consignee||'—'}</td>
+        <td>${o.goods_desc||'—'}</td>
+        <td><span class="status-badge ${o.ship_status==='Shipped'?'status-ok':'status-pending'}">${o.ship_status?o.ship_status.substring(0,3):'—'}</span></td>
+        <td><span class="status-badge ${o.coll_status==='Collected'?'status-ok':'status-pending'}">${o.coll_status?o.coll_status.substring(0,3):'—'}</span></td>
+        <td><span class="status-badge ${o.paying_status==='Paid'?'status-ok':'status-pending'}">${o.paying_status?o.paying_status.substring(0,3):'—'}</span></td>
+        <td style="color:${parseFloat(o.balance)>0?'#ef4444':'#10B981'}">${fmt(o.balance)}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ─── DETAIL MODAL ─────────────────────────────────────────────────────────
+  function detail(i) {
+    const o = ORDERS[i];
+    const key = `${o.rif}|${o.ftp_year}|${o.acid}`;
+    const related = ORDERS.filter(x => `${x.rif}|${x.ftp_year}|${x.acid}` === key);
+
+    let totalQty=0,totalCont=0,totalDp=0,totalSc=0,totalDepIt=0,totalPaidIt=0,totalBalPaid=0,totalDepRec=0,totalBal=0;
+    related.forEach(x => {
+      totalQty    += parseFloat(x.quantity)         || 0;
+      totalCont   += parseFloat(x.containers)       || 0;
+      totalDp     += parseFloat(x.dp_value)         || 0;
+      totalSc     += parseFloat(x.sc_value)         || 0;
+      totalDepIt  += parseFloat(x.deposit_italy)    || 0;
+      totalPaidIt += parseFloat(x.paid_italy)       || 0;
+      totalBalPaid+= parseFloat(x.balance_paid)     || 0;
+      totalDepRec += parseFloat(x.deposit_received) || 0;
+      totalBal    += parseFloat(x.balance)          || 0;
+    });
+
+    const groupKey = o.invoice || o.supplier_sc;
+    const sameGroup = related.filter(x => (x.invoice||x.supplier_sc) === groupKey);
+    const distinctItems = [...new Set(sameGroup.map(x => x.goods_desc||''))];
+    const showPrices = distinctItems.length === 1;
+    const priceRow = sameGroup[0] || o;
+    const dpPriceDisplay   = showPrices ? fmt(priceRow.dp_price, 3)    : '—';
+    const salesPriceDisplay= showPrices ? fmt(priceRow.sales_price, 3) : '—';
+    const itemDisplay = related.length > 1 ? `more items (${related.length})` : (o.item_desc || '—');
+
+    document.getElementById('modalTitle').textContent = `FTP ${o.ftp_year || o.rif}`;
+    document.getElementById('modalBody').innerHTML = `
+      <div class="detail-row"><div class="detail-label">RIF</div><div class="detail-value highlight">${o.rif}</div></div>
+      <div class="detail-row"><div class="detail-label">FTP</div><div class="detail-value highlight">${o.ftp_year||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">ACID NO.</div><div class="detail-value">${o.acid||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Year</div><div class="detail-value">${o.year}</div></div>
+      <div class="detail-row"><div class="detail-label">Supplier S/C</div><div class="detail-value highlight">${o.supplier_sc||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Supplier</div><div class="detail-value">${o.supplier||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Invoice</div><div class="detail-value highlight">${o.invoice||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Item</div><div class="detail-value">${itemDisplay}</div></div>
+      <div class="detail-row"><div class="detail-label">Quantity</div><div class="detail-value">${fmtQty(totalQty)}</div></div>
+      <div class="detail-row"><div class="detail-label">N. Containers</div><div class="detail-value">${fmtInt(totalCont)}</div></div>
+      <div class="detail-row"><div class="detail-label">DP Price</div><div class="detail-value highlight">${dpPriceDisplay}</div></div>
+      <div class="detail-row"><div class="detail-label">DP Value</div><div class="detail-value highlight">${fmt(totalDp)}</div></div>
+      <div class="detail-row"><div class="detail-label">Deposit from Italy</div><div class="detail-value">${fmt(totalDepIt)}</div></div>
+      <div class="detail-row"><div class="detail-label">Paid from Italy</div><div class="detail-value">${fmt(totalPaidIt)}</div></div>
+      <div class="detail-row"><div class="detail-label">Balance to be Paid</div><div class="detail-value" style="color:${totalBalPaid>0?'#ef4444':'#10B981'}">${fmt(totalBalPaid)}</div></div>
+      <div class="detail-row"><div class="detail-label">Consignee</div><div class="detail-value">${o.consignee||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Mago Invoice No.</div><div class="detail-value">${o.magic_invoice||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Sales Price</div><div class="detail-value highlight">${salesPriceDisplay}</div></div>
+      <div class="detail-row"><div class="detail-label">S/C Value</div><div class="detail-value highlight">${fmt(totalSc)}</div></div>
+      <div class="detail-row"><div class="detail-label">Payment Received</div><div class="detail-value">${fmt(totalDepRec)}</div></div>
+      <div class="detail-row"><div class="detail-label">Balance to Receive</div><div class="detail-value" style="color:${totalBal>0?'#ef4444':'#10B981'}">${fmt(totalBal)}</div></div>
+      <div class="detail-row"><div class="detail-label">Bank Used</div><div class="detail-value">${o.bank_used||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Upload Document</div><div class="detail-value">${o.upload_doc||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Shipping</div><div class="detail-value">${o.ship_status||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Collection</div><div class="detail-value">${o.coll_status||'—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Payment</div><div class="detail-value">${o.paying_status||'—'}</div></div>
+    `;
+    document.getElementById('modal').classList.add('active');
+  }
+
+  function closeModal() { document.getElementById('modal').classList.remove('active'); }
+
+  // ─── AVVIO ────────────────────────────────────────────────────────────────
+  loadData();
+</script>
+</body>
+</html>
