@@ -1,6 +1,6 @@
 [
   {
-    "username": "admin",
+    "username": "filippo",
     "passwordHash": "$2a$12$2mLw9e3CDonyToRyatvY7uUFW25d4Tfz9ahgoMjVZhh/Km5yoBTy2",
     "role": "admin",
     "enabled": true
