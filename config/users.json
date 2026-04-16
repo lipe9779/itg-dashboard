@@ -6,3 +6,9 @@
     "enabled": true
   }
 ]
+{
+    "username": "islam",
+    "passwordHash": "$2a$12$pmcwuh9pfxBLoZaG1n7Wn.nVOJlsKVFvhs0gThZh2FRZeL1xIJZRi",
+    "role": "manager",
+    "enabled": true
+  }
