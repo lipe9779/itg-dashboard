@@ -1,0 +1,8 @@
+[
+  {
+    "username": "filippo",
+    "passwordHash": "$2a$12$E3W0kEoNFNTu6EbZImIB1OhKrYfvWISW0cN0dzL63RwnhMluih2TS",
+    "role": "admin",
+    "enabled": true
+  }
+]
