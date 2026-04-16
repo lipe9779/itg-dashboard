@@ -4,11 +4,11 @@
     "passwordHash": "$2b$12$tKkxk4eI1p8G8AhLNqMPruqEzD0v2bM0E4feD8gfmrC.i9TsMtxam",
     "role": "admin",
     "enabled": true
-  }
-]
+  },
 {
     "username": "islam",
     "passwordHash": "$2a$12$pmcwuh9pfxBLoZaG1n7Wn.nVOJlsKVFvhs0gThZh2FRZeL1xIJZRi",
     "role": "manager",
     "enabled": true
   }
+]
