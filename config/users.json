@@ -10,5 +10,17 @@
     "passwordHash": "$2a$12$pmcwuh9pfxBLoZaG1n7Wn.nVOJlsKVFvhs0gThZh2FRZeL1xIJZRi",
     "role": "manager",
     "enabled": true
+  },
+{
+    "username": "nour",
+    "passwordHash": "$2a$12$ZbJ3zXZuT1hMopeDoM5q8.n/y1iaP4AaqZGDZZ65rTHLH5cS6MxS2",
+    "role": "manager",
+    "enabled": true
+  },
+{
+    "username": "egoffice",
+    "passwordHash": "$2a$12$QvBA5H8rL3L4HSCwCuYAKuRzKVeEEI44QFS2wpVtllKxs3BRdp.s.",
+    "role": "manager",
+    "enabled": true
   }
 ]
