@@ -1,7 +1,7 @@
 [
   {
     "username": "filippo",
-    "passwordHash": "$2a$12$2mLw9e3CDonyToRyatvY7uUFW25d4Tfz9ahgoMjVZhh/Km5yoBTy2",
+    "passwordHash": "$2b$12$tKkxk4eI1p8G8AhLNqMPruqEzD0v2bM0E4feD8gfmrC.i9TsMtxam",
     "role": "admin",
     "enabled": true
   }
